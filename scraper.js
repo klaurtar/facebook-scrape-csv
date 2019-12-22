@@ -20,7 +20,7 @@ const success = chalk.keyword("green");
     var page = await browser.newPage();
 
     // enter url in page
-    await page.goto(`https://www.facebook.com/marketplace/selling/`);
+    await page.goto(`https://www.facebook.com/marketplace/cairo`);
     await page.waitForSelector("#email");
 
 
@@ -106,7 +106,7 @@ const success = chalk.keyword("green");
     
 
 
-    await browser.close();
+    //await browser.close();
 
     function ConvertToCSV(objArray) {
         var array = typeof objArray != 'object' ? JSON.parse(objArray) : objArray;
