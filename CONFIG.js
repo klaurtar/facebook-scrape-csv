@@ -14,6 +14,12 @@ module.exports = {
 	* @param {int} maxItems - hom many item you need to scape??
 	* 0 -> means all the items, otherwise set the max number.
 	*/
-	maxItems: 0,
+	maxItems: 15,
 	removeBr: false,
+	/*
+	* rename the files, remember to add ths .csv file extension to make it more readable.
+	*/
+	allItemsFileName: 'all_items.csv',
+	notSoldItemsFileName: 'not_sold_Items.csv',
+	soldItemsFileName: 'sold_Items.csv',
 };

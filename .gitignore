@@ -1,3 +1,4 @@
 node_modules
 scrapedData.csv
 .env
+*.csv

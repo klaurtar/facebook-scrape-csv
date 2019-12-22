@@ -23,9 +23,13 @@ var page;
 var scrapedData = [];
 /*
 * first, we are gathering the ids of the items
-* @param {Array} - scrapedItemsIds: array of ids of the items
+* @param {Array[Objects]} - scrapedItemsIdentifiers: array of objects like
+* {
+* 	id: {string},
+* 	is_sold: {bool}	
+* }
 */
-var scrapedItemsIds = [];
+var scrapedItemsIdentifiers = [];
 
 /*
 * open browser
@@ -78,6 +82,7 @@ async function login(data) {
 async function navigateTo(pageUrl) {
 	console.log('>>> navigate to ', pageUrl);
     await page.goto(pageUrl);
+    await page.waitFor(200);
 }
 
 /*
@@ -100,19 +105,19 @@ async function listenToResponses(){
 					addNewItemsIds(page.edges);
 					
 					// scroll down if there is more data
-					//if(page.has_next_page && scrapedItemsIds.length < 50){
-					if(page.has_next_page &&  ( (CONFIG.maxItems == 0)? true: scrapedItemsIds.length < CONFIG.maxItems) ){
+					//if(page.has_next_page && scrapedItemsIdentifiers.length < 50){
+					if(page.has_next_page &&  ( (CONFIG.maxItems == 0)? true: scrapedItemsIdentifiers.length < CONFIG.maxItems) ){
 						await scrollDownOnePage();
 					
 					// in case of; no more data
 					}else{
 						// remove listeners
 						await removeListeners();
-						//console.log(scrapedItemsIds, scrapedItemsIds.length);
+						//console.log(scrapedItemsIdentifiers, scrapedItemsIdentifiers.length);
 						await navigateThroughScrapedIds();
 						await closeBrowser();
-						let csv = await convertToCSV(scrapedData);
-						await saveIntoFile('./scrapedData.csv', csv);
+						await saveDataIntoFiles();
+						
 					}
 				}
 			}catch(e){
@@ -167,6 +172,30 @@ async function saveIntoFile(path, data){
 	});
 }
 
+/*
+*
+*/
+async function saveDataIntoFiles(){
+	// save all items
+	if(scrapedData.length > 0){
+		let csvData = await convertToCSV(scrapedData);
+		await saveIntoFile('./' + CONFIG.allItemsFileName, csvData);
+	}
+	
+	// save not sold items
+	let notSoldItems = scrapedData.filter( i => !i.is_sold );
+	if(notSoldItems.length > 0){
+		let csvData = await convertToCSV(notSoldItems);
+		await saveIntoFile('./' + CONFIG.notSoldItemsFileName, csvData);
+	}
+
+	// save not sold items
+	let soldItems = scrapedData.filter( i => i.is_sold );
+	if(soldItems.length > 0){
+		let csvData = await convertToCSV(soldItems);
+		await saveIntoFile('./' + CONFIG.soldItemsFileName, csvData);
+	}
+}
 
 /*
 *
@@ -183,17 +212,19 @@ async function scrollDownOnePage(){
 *
 */
 async function navigateThroughScrapedIds(){
-	console.log('>>> navigateThroughScrapedIds ', scrapedItemsIds.length, ' ids');
-	for(let id of scrapedItemsIds){
-		await page.goto('https://www.facebook.com/marketplace/item/'+ id);
-		await scrapeItem();
+	console.log('>>> navigateThroughScrapedIds ', scrapedItemsIdentifiers.length, ' ids');
+	for(let itemIdentifier of scrapedItemsIdentifiers){
+		let url = 'https://www.facebook.com/marketplace/item/'+ itemIdentifier.id;
+		await page.goto(url);
+		itemIdentifier.url = url;
+		await scrapeItem(itemIdentifier);
 	}
 }
 
 /*
 * Name, Price, Views, Description, and date Posted
 */
-async function scrapeItem() {
+async function scrapeItem(itemIdentifier) {
 	try{
 		let titleElementHandler = await page.waitForSelector('span[data-testid="marketplace_pdp_title"]');
 		let priceElementHandler = await page.waitForSelector('div._2iel');
@@ -205,11 +236,11 @@ async function scrapeItem() {
 		const price = await (await priceElementHandler.getProperty('textContent')).jsonValue();
 		const views = await (await viewsElementHandler.getProperty('textContent')).jsonValue();
 		const description = await (await descriptionElementHandler.getProperty('textContent')).jsonValue();
-		const date = await (await descriptionElementHandler.getProperty('title')).jsonValue();
+		const date = await (await dateElementHandler.getProperty('title')).jsonValue();
 		
 		// push collected data into scrapedData array
 		scrapedData.push({
-			title, price, views, description, date
+			title, price, views, description, date, ...itemIdentifier
 		});
 	}catch(e){
 		console.log('[MISBEHAVIOR] -> scrapeItem');
@@ -269,11 +300,14 @@ function isSellingFeedPage(jsonObj){
 */
 function addNewItemsIds(items){
 	for(let item of items){
-		if( (scrapedItemsIds.length < CONFIG.maxItems) || (CONFIG.maxItems === 0) ){
+		if( (scrapedItemsIdentifiers.length < CONFIG.maxItems) || (CONFIG.maxItems === 0) ){
 			// marketplacr
-			//scrapedItemsIds.push(item.node.listing.id);
+			//scrapedItemsIdentifiers.push(item.node.listing.id);
 			// selling
-			scrapedItemsIds.push(item.node.id);
+			scrapedItemsIdentifiers.push({
+				id: item.node.id,
+				is_sold: item.node.is_sold
+			});
 		}
 	}
 }
